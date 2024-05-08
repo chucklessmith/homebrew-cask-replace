@@ -3,8 +3,9 @@
 import sys
 import os
 import argparse
-import commands
-import urllib2
+# import commands
+import subprocess
+import urllib
 import subprocess
 from send2trash import send2trash
 
@@ -45,10 +46,12 @@ def parse_ignorescask(ignorecask_file_path):
                 ignorescask.add(line)
     return ignorescask
 
-
+# e.g., codesign -dv /Applications/Linearity\ Curve.app --> info indicating App Store has installed this.
+# seems to only use -dvv (not 3x v) for this application as of 14.4.1 (Sonoma)
 def is_installed_by_appstore(application_path):
-    cmd = 'codesign -dvvv "{0}"'.format(application_path)
-    output = commands.getoutput(cmd)
+    cmd = 'codesign -dvv "{0}"'.format(application_path)
+    p = subprocess.Popen(cmd)
+    output = p.communicate()[0]
     return output.find('Authority=Apple Mac OS Application Signing') > 0
 
 
@@ -87,7 +90,7 @@ def generate_cask_token(application_path, application_name):
 def replace_application_in(
     applications_dir, always_yes=False, skip_app_from_appstore=True
 ):
-    os.system('brew cask list > ignorecask.txt')
+    os.system('brew list --cask > ignorecask.txt')
     ignores = parse_ignores(os.path.join(os.path.dirname(__file__), 'ignore.txt'))
     ignorescask = parse_ignorescask(os.path.join(os.path.dirname(__file__), 'ignorecask.txt'))
     not_founded = []
@@ -110,7 +113,7 @@ def replace_application_in(
             application_name = generate_cask_token(application_path, application_name)
             try:
                 cask_url = _CASKS_HOME + application_name + '.rb'
-                application_info_file = urllib2.urlopen(cask_url, timeout=3)
+                application_info_file = urllib.urlopen(cask_url, timeout=3)
             except Exception:
                 not_founded.append(application)
                 continue
@@ -139,11 +142,11 @@ def replace_application_in(
                     print('\n{0} replace failed \n'.format(application_name))
                 else:
                     print('\n{0} successfully sent to trash, now reinstalling via brew \n'.format(application_name))
-                    status = os.system('brew cask install {0}'.format(application_name))
+                    status = os.system('brew install --cask {0}'.format(application_name))
                     if status != 0:
                         installed_failed.append(application)
                         print(
-                            '{0} brew installation failed. Please try to install using the command:\n"brew cask install {0}".\nIf that fails please reinstall manually'.format(application_name)
+                            '{0} brew installation failed. Please try to install using the command:\n"brew install --cask {0}".\nIf that fails please reinstall manually'.format(application_name)
                         )
                     else:
                         print('{0} successfully reinstalled with cask.\n'.format(application_name))
